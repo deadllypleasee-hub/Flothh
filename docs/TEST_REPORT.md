@@ -45,12 +45,18 @@ Headless-тесты и графический захват с Dummy-аудиод
 ## Сборка и визуальная проверка
 
 - Экспорт debug APK в Godot выполнен локально. Подпись APK проверяется `apksigner`, package/minSdk/targetSdk/permissions — `aapt`.
-- Итоговый APK 0.1.1: ARM64, versionCode 2, minSdk 24, targetSdk 36; APK Signature Scheme v2 и v3 подтверждены, один подписант. Отпечаток сертификата совпадает с предыдущим локальным APK 0.1.0. SHA-256: `5236cae1e25a84eeb90ab31ff658e92c257d25d476b2f251c4e0ea55ecceae5f`.
-- Оба GitHub Actions YAML разобраны PyYAML. Удалённые workflow ещё не запускались.
+- Локальный APK 0.1.1: ARM64, versionCode 2, minSdk 24, targetSdk 36; APK Signature Scheme v2 и v3 подтверждены, один подписант. Отпечаток сертификата совпадает с предыдущим локальным APK 0.1.0. SHA-256: `5236cae1e25a84eeb90ab31ff658e92c257d25d476b2f251c4e0ea55ecceae5f`.
+- Оба GitHub Actions YAML разобраны PyYAML. Debug workflow успешно выполнен на GitHub; release workflow с ключом владельца ещё не запускался.
 - `tests/capture.gd` запускает рендер OpenGL Compatibility под X11/Mesa llvmpipe и сохраняет настоящие кадры меню, боя и редактора в `build/`. Это изображения движка, не макеты.
 - Предыдущая визуальная проверка обнаружила слишком редкую сетку волн, светлую нижнюю половину ночного неба и наложение подписей карты; соответствующий код исправлен.
 - Повторный рендер меню, боя и редактора завершился без ошибок Godot. Исправлено обращение звукового источника к удалённому судну при смене режимов. Под X11 осталась только особенность программного драйвера: он не поддерживает изменение V-Sync.
 - При экспорте фоновый опрос ADB не смог создать `/home/agent/.android` в ограниченной среде. Это не остановило экспорт или проверку подписи APK; подключение устройства через ADB здесь не проверено.
+
+### Сборка GitHub Actions №2
+
+[Успешный запуск](https://github.com/deadllypleasee-hub/Flothh/actions/runs/41062171603) для коммита `2495c33315f8da7040aaa66d8575127f45d6edb6`: импорт, 64 основных + 22 боевых + 47 навигационных проверок, экспорт Android и проверка подписи завершились успешно. В первом запуске обнаружен удалённый из Android SDK пакет `tools`; настройки обоих workflows исправлены: command-line tools 13114758, пакет platform-tools.
+
+[Артефакт fortis-android-debug-2](https://github.com/deadllypleasee-hub/Flothh/actions/runs/41062171603/artifacts/12980950815) содержит APK, SHA256SUMS и логи. APK из скачанного артефакта дополнительно проверен локально: ZIP CRC и digest совпадают, SHA-256 APK совпадает с SHA256SUMS, apksigner подтверждает подпись; package `com.fortisgames.deepwaters`, версия 0.1.1, versionCode 2, minSdk 24, targetSdk 36. Размер APK: 27 739 420 байт. SHA-256 APK CI: `fd99c5ad49baa50eab28d4a430c548f6a0b737766f26563620d161333a718779`. Артефакт хранится до 13 ноября 2026; для скачивания требуется войти в GitHub. CI использует свой временный debug-ключ; это отдельная подпись от локальных APK.
 
 ## Производительность
 
