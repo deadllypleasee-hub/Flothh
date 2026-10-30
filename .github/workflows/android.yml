@@ -1,0 +1,71 @@
+name: Android debug APK
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+env:
+  GODOT_VERSION: 4.6.3
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - name: Android tools
+        run: sdkmanager 'platform-tools' 'platforms;android-36' 'build-tools;36.0.0'
+      - name: Godot and matching export templates
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fL --retry 3 "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip" -o /tmp/godot.zip
+          unzip -q /tmp/godot.zip -d /tmp/godot
+          sudo install "/tmp/godot/Godot_v${GODOT_VERSION}-stable_linux.x86_64" /usr/local/bin/godot
+          curl -fL --retry 3 "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_export_templates.tpz" -o /tmp/templates.tpz
+          mkdir -p "$HOME/.local/share/godot/export_templates/${GODOT_VERSION}.stable"
+          unzip -q -j /tmp/templates.tpz 'templates/android_debug.apk' 'templates/android_release.apk' 'templates/version.txt' -d "$HOME/.local/share/godot/export_templates/${GODOT_VERSION}.stable"
+      - name: Configure debug signing
+        run: python3 tools/configure_android.py
+      - name: Import and reject script errors
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build
+          godot --headless --path . --editor --quit 2>&1 | tee build/import.log
+          python3 tools/check_log.py build/import.log
+      - name: Game integration tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          godot --headless --path . --fixed-fps 30 --script res://tests/run_tests.gd 2>&1 | tee build/tests.log
+          python3 tools/check_log.py build/tests.log
+          grep -Eq 'RESULT: [0-9]+ checks, 0 failures' build/tests.log
+          godot --headless --path . --fixed-fps 30 --script res://tests/scenario_test.gd 2>&1 | tee build/acceptance.log
+          python3 tools/check_log.py build/acceptance.log
+          grep -Eq 'ACCEPTANCE RESULT: [0-9]+ checks, 0 failures' build/acceptance.log
+          godot --headless --path . --fixed-fps 30 --script res://tests/navigation_test.gd 2>&1 | tee build/navigation.log
+          python3 tools/check_log.py build/navigation.log
+          grep -Eq 'NAVIGATION RESULT: [0-9]+ checks, 0 failures' build/navigation.log
+      - name: Export and verify APK signature
+        shell: bash
+        run: |
+          set -euo pipefail
+          godot --headless --path . --export-debug 'Android Debug' build/fortis-debug.apk 2>&1 | tee build/export.log
+          python3 tools/check_log.py build/export.log
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify build/fortis-debug.apk
+          sha256sum build/fortis-debug.apk > build/SHA256SUMS
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fortis-android-debug-${{ github.run_number }}
+          path: |
+            build/fortis-debug.apk
+            build/SHA256SUMS
+            build/*.log
+          retention-days: 14

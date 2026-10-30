@@ -1,0 +1,14 @@
+.godot/
+build/*
+!build/.gitkeep
+!build/.gdignore
+*.apk
+*.aab
+*.keystore
+*.jks
+*.log
+.android/
+android/
+.DS_Store
+__pycache__/
+.env
