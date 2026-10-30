@@ -1,0 +1,72 @@
+name: Direct APK download
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/publish-apk.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+env:
+  VERIFIED_RUN_ID: '41062171603'
+  SOURCE_COMMIT: '2495c33315f8da7040aaa66d8575127f45d6edb6'
+  EXPECTED_APK_SHA256: 'fd99c5ad49baa50eab28d4a430c548f6a0b737766f26563620d161333a718779'
+  RELEASE_TAG: 'fortis-test-v0.1.1'
+  APK_NAME: 'FORTIS-Deep-Waters-0.1.1.apk'
+jobs:
+  publish:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      actions: read
+      contents: write
+    steps:
+      - name: Download the already tested build
+        uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ env.VERIFIED_RUN_ID }}
+          name: fortis-android-debug-2
+          path: verified-build
+      - name: Verify build provenance and APK checksum
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p release
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$VERIFIED_RUN_ID" > release/build-run.json
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib, json, os, shutil
+          run = json.loads(Path('release/build-run.json').read_text())
+          assert run['conclusion'] == 'success', 'Source build did not succeed'
+          assert run['head_sha'] == os.environ['SOURCE_COMMIT'], 'Source commit mismatch'
+          apk = Path('verified-build/fortis-debug.apk')
+          digest = hashlib.sha256(apk.read_bytes()).hexdigest()
+          assert digest == os.environ['EXPECTED_APK_SHA256'], 'APK checksum mismatch'
+          assert digest in Path('verified-build/SHA256SUMS').read_text(), 'Build checksum mismatch'
+          name = os.environ['APK_NAME']
+          shutil.copyfile(apk, Path('release') / name)
+          Path('release/SHA256SUMS').write_text(digest + '  ' + name + '\n')
+          Path('release/NOTES.md').write_text(
+              'FORTIS: DEEP WATERS 0.1.1 — тестовая сборка.\n\n'
+              'Скачайте файл APK и откройте его на телефоне. ZIP и вход в GitHub не требуются.\n\n'
+              'Android 7.0+, ARM64, OpenGL ES 3.0. Одиночная офлайн-игра.\n'
+              '133 автоматические проверки прошли успешно. На физическом Android пока не проверено.\n\n'
+              'Это тот же APK из успешного запуска GitHub Actions, с той же подписью.\n'
+              'SHA-256: `' + digest + '`.\n', encoding='utf-8')
+          print('Verified APK:', name, apk.stat().st_size, 'bytes', digest)
+          PY
+      - name: Publish the test APK as a downloadable file
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" "release/$APK_NAME" release/SHA256SUMS --repo "$GITHUB_REPOSITORY" --clobber
+          else
+            gh release create "$RELEASE_TAG" "release/$APK_NAME" release/SHA256SUMS --repo "$GITHUB_REPOSITORY" --target "$SOURCE_COMMIT" --title 'FORTIS: DEEP WATERS 0.1.1 — тестовая сборка' --notes-file release/NOTES.md --prerelease --latest=false
+          fi
