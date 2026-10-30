@@ -6,6 +6,12 @@
 
 Это тестовая сборка, а не законченный коммерческий симулятор. Реализованные системы и ограничения подробно перечислены в [docs/STATUS.md](docs/STATUS.md).
 
+## Скачать APK
+
+**[Скачать FORTIS: DEEP WATERS 0.1.1 — APK](https://github.com/deadllypleasee-hub/Flothh/releases/download/fortis-test-v0.1.1/FORTIS-Deep-Waters-0.1.1.apk)**
+
+Прямая загрузка без входа в GitHub и распаковки архива. 27,7 МБ, Android 7.0+, ARM64. Это тестовая сборка из успешного CI с 133 пройденными проверками.
+
 ## Быстрый старт
 
 1. Откройте `project.godot` в **Godot 4.6.3 Standard** и нажмите F6/F5 для запуска главной сцены/проекта. .NET не требуется.
